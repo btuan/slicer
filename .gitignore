@@ -2,4 +2,4 @@
 .git*
 .idea
 __pycache__*
-.pyc
+*.pyc
