@@ -6,12 +6,16 @@ from pprint import PrettyPrinter
 
 import slicer
 import stlimport
+import gcodeexport
 
 
 @click.command()
 @click.option("--stl", help="Path to input STL file.")
+@click.option("--preamble", help="Path to GCode preamble.", default=None)
+@click.option("--cleanup", help="Path to GCode cleanup.", default=None)
+@click.option("--outpath", help="Path to output location of GCode.")
 @click.option("-v", "--verbose", default=False, is_flag=True, help="Toggle to True for verbosity.")
-def run(stl, verbose):
+def run(stl, preamble, cleanup, outpath, verbose):
     # Initialize verbose logger.
     p = PrettyPrinter(indent=4)
     pprint = p.pprint
@@ -37,6 +41,12 @@ def run(stl, verbose):
         print("Slicing done.\n")
 
     # DONE
+    if outpath is None:
+        outpath = stl.replace(".stl", ".gcode")
+
+    if verbose:
+        print("Outputting to: {}".format(outpath))
+    gcodeexport.export(sliced, preamble, cleanup, outpath, verbose)
 
 if __name__ == "__main__":
     run()

@@ -32,7 +32,10 @@ def slice_model(parsed_stl, auxdata, params, verbose=False):
     perimeters = generate_perimeters(facets, auxdata, params, verbose)
     infill = generate_infill_and_supports(auxdata, params, verbose)
 
-    return perimeters + infill
+    sliced = perimeters + infill
+    sliced.sort(key=lambda x: x[0][2])
+
+    return sliced
 
 
 def generate_perimeters(facets, auxdata, params, verbose):
