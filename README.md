@@ -4,6 +4,9 @@ Brian Tuan
 Ideally should slice STL meshes into G-Code toolpaths.
 
 Tested on a few geometric primitives (sphere, cube, etc.).
+GCode read at `images/RepetierMVP.png`.
+
+Hosted at http://github.com/btuan/slicer
 
 ## Usage
 Help menu:
