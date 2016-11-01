@@ -12,15 +12,6 @@ DEFAULT_PARAMETERS = {
     "resolution": 0.1,
 }
 
-REGULAR_HEXAGON = (
-    (1.0, 0.0),
-    (1.0/2.0, math.sqrt(3.0)/2.0),
-    (-1.0/2.0, math.sqrt(3.0)/2.0),
-    (-1.0, 0.0),
-    (-1.0/2.0, -math.sqrt(3.0)/2.0),
-    (1.0/2.0, -math.sqrt(3.0)/2.0),
-)
-
 
 def slice_model(parsed_stl, auxdata, params, verbose=False):
     # Use auxdata to perform offset calculation. Object should be aligned to Cartesian 0.
@@ -39,8 +30,9 @@ def slice_model(parsed_stl, auxdata, params, verbose=False):
               for d in parsed_stl]
 
     perimeters = generate_perimeters(facets, auxdata, params, verbose)
+    infill = generate_infill_and_supports(auxdata, params, verbose)
 
-    return perimeters
+    return perimeters + infill
 
 
 def generate_perimeters(facets, auxdata, params, verbose):
@@ -72,19 +64,51 @@ def generate_perimeters(facets, auxdata, params, verbose):
     if verbose:
         print("Perimeters generated.")
 
-    # Sequence perimeters by closest to previous point.
-
+    # TODO: Sequence perimeters by closest to previous point.
     return perimeters
 
 
-def generate_infill():
+def generate_infill_and_supports(auxdata, params, verbose):
+    if params["infill"] == 0:
+        return []
+
+    max_x = auxdata["x_max"] - auxdata["x_min"]
+    max_y = auxdata["y_max"] - auxdata["y_min"]
+    max_z = auxdata["z_max"] - auxdata["z_min"]
+    unit = math.sqrt(max_x * max_y) * (1.00000001 - params["infill"])
+
+    # Defined in points of (top, bottom, middle) and (left, right), e.g. denoted "bl" for "bottom left"
+    mr = (unit * 1.0, unit * 0.0)
+    tr = (unit * 1.0/2.0, unit * math.sqrt(3.0)/2.0)
+    tl = (unit * (-1.0)/2.0, unit * math.sqrt(3.0)/2.0)
+    ml = (unit * (-1.0), unit * 0.0)
+    bl = (unit * (-1.0)/2.0, unit * (-math.sqrt(3.0)/2.0))
+    br = (unit * 1.0/2.0, unit * (-math.sqrt(3.0)/2.0))
+
     # Hexagonal infill. Define hexagonal tessellation absolute to coordinate system.
-    # Next perimeter is always going to be the opposite direction.
-    pass
+    horiz = []
+    for x_off in np.arange(0, max_x, unit):
+        horiz += [((mr[0] + x_off, mr[1]), (br[0] + x_off, br[1])),
+                  ((bl[0] + x_off, bl[1]), (ml[0] + x_off, ml[1])),
+                  ((ml[0] + x_off, ml[1]), (tl[0] + x_off, tl[1])),
+                  ((tl[0] + x_off, tl[1]), (tr[0] + x_off, tr[1])),
+                  ((tr[0] + x_off, tr[1]), (mr[0] + x_off, mr[1])),
+                  ((mr[0] + x_off, mr[1]), (mr[0] + x_off + unit, mr[1]))]
+
+    vert = []
+    for y_off in np.arange(0, max_y, unit * math.sqrt(3)):
+        vert += [((x1, y1 + y_off), (x2, y2 + y_off)) for ((x1, y1), (x2, y2)) in horiz]
+
+    infill = []
+    for z_off in np.arange(0, max_z, params["layer_height"]):
+        infill += [((x1, y1, z_off), (x2, y2, z_off)) for ((x1, y1), (x2, y2)) in vert]
+
+    return infill
 
 
-def generate_supports():
-    pass
+# TODO: Factor out support material from infill patterns.
+# def generate_supports():
+#     pass
 
 
 def intersect(facet, z_ind, params, verbose):
@@ -95,7 +119,7 @@ def intersect(facet, z_ind, params, verbose):
 
     # Case 1, when facet is close to coplanar to build plate.
     if 1.0 - params["nozzle_diameter"] / 10.00 <= abs(facet["normal"][2]) \
-         <= 1.0 + params["nozzle_diameter"] / 10.00:
+            <= 1.0 + params["nozzle_diameter"] / 10.00:
         vertices = [vtx for vtx in facet["vertices"]]
         x_min = min(list(map(lambda x: x[0], vertices)))
         x_max = max(list(map(lambda x: x[0], vertices)))
@@ -203,5 +227,3 @@ def intersect(facet, z_ind, params, verbose):
         )
 
     return segments
-
-
