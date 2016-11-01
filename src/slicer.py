@@ -129,7 +129,7 @@ def intersect(facet, z_ind, params, verbose):
         y_min = min(list(map(lambda y: y[1], vertices)))
         y_max = max(list(map(lambda y: y[1], vertices)))
 
-        # Alternate x-y orientation of filament "scans" per even/odd layer.
+        # TODO: Alternate x-y orientation of filament "scans" per even/odd layer.
         if True or (z_ind / params["layer_height"]) % 2 == 0:
             lefts = [vtx for vtx in vertices if vtx[0] == x_min]
             rights = [vtx for vtx in vertices if vtx[0] == x_max]
