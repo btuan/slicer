@@ -13,6 +13,18 @@ DEFAULT_PARAMETERS = {
 }
 
 
+class Hexagon:
+    """ Simple definition of points of a hexagon, with points scaled to parameter unit. """
+    def __init__(self, unit):
+        # Defined in points of (top, bottom, middle) and (left, right), e.g. denoted "bl" for "bottom left"
+        self.mr = (unit * 0.5, unit * 0.0)
+        self.tr = (unit * 0.5/2.0, unit * 0.5 * math.sqrt(3.0)/2.0)
+        self.tl = (unit * (-0.5)/2.0, unit * 0.5 * math.sqrt(3.0)/2.0)
+        self.ml = (unit * (-0.5), unit * 0.0)
+        self.bl = (unit * (-0.5)/2.0, unit * 0.5 * (-math.sqrt(3.0)/2.0))
+        self.br = (unit * 0.5/2.0, unit * 0.5 * (-math.sqrt(3.0)/2.0))
+
+
 def slice_model(parsed_stl, auxdata, params, verbose=False):
     # Use auxdata to perform offset calculation. Object should be aligned to Cartesian 0.
     off_x, off_y, off_z = -1.0 * auxdata["x_min"], -1.0 * auxdata["y_min"], -1.0 * auxdata["z_min"]
@@ -62,7 +74,7 @@ def generate_perimeters(facets, auxdata, params, verbose):
                 continue
             # Otherwise, calculate the intersection of this facet
             else:
-                perimeters += intersect(facet, z_ind, params, verbose)
+                perimeters += intersect(facet, z_ind, params, auxdata, verbose)
 
     if verbose:
         print("Perimeters generated.")
@@ -78,29 +90,36 @@ def generate_infill_and_supports(auxdata, params, verbose):
     max_x = auxdata["x_max"] - auxdata["x_min"]
     max_y = auxdata["y_max"] - auxdata["y_min"]
     max_z = auxdata["z_max"] - auxdata["z_min"]
-    unit = math.sqrt(max_x * max_y) * (1.00000001 - params["infill"])
-
-    # Defined in points of (top, bottom, middle) and (left, right), e.g. denoted "bl" for "bottom left"
-    mr = (unit * 1.0, unit * 0.0)
-    tr = (unit * 1.0/2.0, unit * math.sqrt(3.0)/2.0)
-    tl = (unit * (-1.0)/2.0, unit * math.sqrt(3.0)/2.0)
-    ml = (unit * (-1.0), unit * 0.0)
-    bl = (unit * (-1.0)/2.0, unit * (-math.sqrt(3.0)/2.0))
-    br = (unit * 1.0/2.0, unit * (-math.sqrt(3.0)/2.0))
+    unit = math.sqrt(max_x * max_y) * (1.00000001 - params["infill"]) / 2
 
     # Hexagonal infill. Define hexagonal tessellation absolute to coordinate system.
     horiz = []
-    for x_off in np.arange(0, max_x, unit):
-        horiz += [((mr[0] + x_off, mr[1]), (br[0] + x_off, br[1])),
-                  ((bl[0] + x_off, bl[1]), (ml[0] + x_off, ml[1])),
-                  ((ml[0] + x_off, ml[1]), (tl[0] + x_off, tl[1])),
-                  ((tl[0] + x_off, tl[1]), (tr[0] + x_off, tr[1])),
-                  ((tr[0] + x_off, tr[1]), (mr[0] + x_off, mr[1])),
-                  ((mr[0] + x_off, mr[1]), (mr[0] + x_off + unit, mr[1]))]
+    h = Hexagon(unit)
+    for x_off in np.arange(0, max_x + unit * 1.5, unit * 1.5):
+        horiz += [((h.mr[0] + x_off, h.mr[1]), (h.br[0] + x_off, h.br[1])),
+                            ((h.bl[0] + x_off, h.bl[1]), (h.ml[0] + x_off, h.ml[1])),
+                            ((h.ml[0] + x_off, h.ml[1]), (h.tl[0] + x_off, h.tl[1])),
+                            ((h.tl[0] + x_off, h.tl[1]), (h.tr[0] + x_off, h.tr[1])),
+                            ((h.tr[0] + x_off, h.tr[1]), (h.mr[0] + x_off, h.mr[1])),
+                            ((h.mr[0] + x_off, h.mr[1]), (h.mr[0] + x_off + unit / 2, h.mr[1]))]
 
     vert = []
-    for y_off in np.arange(0, max_y, unit * math.sqrt(3)):
-        vert += [((x1, y1 + y_off), (x2, y2 + y_off)) for ((x1, y1), (x2, y2)) in horiz]
+    for y_off in np.arange(0, max_y + unit * 0.5 * math.sqrt(3), unit * 0.5 * math.sqrt(3)):
+        raw_tessellation = [((x1, y1 + y_off), (x2, y2 + y_off)) for ((x1, y1), (x2, y2)) in horiz]
+
+        strict_in = [seg for seg in raw_tessellation if
+                     0 <= seg[0][0] <= max_x and 0 <= seg[1][0] <= max_x and
+                     0 <= seg[0][1] <= max_y and 0 <= seg[1][1] <= max_y]
+        almost_in = [seg for seg in raw_tessellation if seg not in strict_in and
+                     ((0 <= seg[0][0] <= max_x and 0 <= seg[0][1] <= max_y) or
+                      (0 <= seg[1][0] <= max_x and 0 <= seg[1][1] <= max_y))]
+
+        for ((x1, y1), (x2, y2)) in almost_in:
+            x1, x2 = min(max(0, x1), max_x), min(max(0, x2), max_x)
+            y1, y2 = min(max(0, y1), max_y), min(max(0, y2), max_x)
+            vert.append(((x1, y1), (x2, y2)))
+
+        vert += strict_in
 
     infill = []
     for z_off in np.arange(0, max_z, params["layer_height"]):
@@ -114,7 +133,7 @@ def generate_infill_and_supports(auxdata, params, verbose):
 #     pass
 
 
-def intersect(facet, z_ind, params, verbose):
+def intersect(facet, z_ind, params, auxdata, verbose):
     segments = []
     points_abv_layer = [vtx for vtx in facet["vertices"] if vtx[2] > z_ind + params["layer_height"]]
     points_blw_layer = [vtx for vtx in facet["vertices"] if vtx[2] < z_ind + params["layer_height"]]
@@ -144,10 +163,9 @@ def intersect(facet, z_ind, params, verbose):
                 for x_ind in np.arange(x_min, x_max + params["layer_height"], params["layer_height"]):
                     t1 = (x_ind - xl1) / (xr - xl1)
                     t2 = (x_ind - xl2) / (xr - xl2)
-
                     segments.append((
-                        (x_ind, (yr - yl1) * t1, z_ind),
-                        (x_ind, (yr - yl2) * t2, z_ind),
+                        (x_ind, (yr - yl1) * t1 + yl1, z_ind),
+                        (x_ind, (yr - yl2) * t2 + yl2, z_ind),
                     ))
 
             # Case 2, right side has collinear points on x-axis.
@@ -159,10 +177,9 @@ def intersect(facet, z_ind, params, verbose):
                 for x_ind in np.arange(x_min, x_max + params["layer_height"], params["layer_height"]):
                     t1 = (x_ind - xl) / (xr1 - xl)
                     t2 = (x_ind - xl) / (xr2 - xl)
-
                     segments.append((
-                        (x_ind, (yr1 - yl) * t1, z_ind),
-                        (x_ind, (yr2 - yl) * t2, z_ind),
+                        (x_ind, (yr1 - yl) * t1 + yl, z_ind),
+                        (x_ind, (yr2 - yl) * t2 + yl, z_ind),
                     ))
 
             # Call the function that we've made for case 1.
