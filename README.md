@@ -4,9 +4,15 @@ Brian Tuan
 Ideally should slice STL meshes into G-Code toolpaths.
 
 Tested on a few geometric primitives (sphere, cube, etc.).
-GCode read at `images/RepetierMVP.png`.
+GCode read at `images/HollowCylinder.png`.
 
 Hosted at http://github.com/btuan/slicer
+
+## Slicing Philosophy
+Models are sliced from bottom to top, with supports and infill being the same
+hexagonal honeycomb pattern as specified by infill parameters. Default params
+are located at the top of the `src/slicer.py` file and may be modified to de-
+sire. Further specification of infill vs supports may be added in the future.
 
 ## Usage
 Help menu:
