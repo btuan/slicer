@@ -160,7 +160,7 @@ def intersect(facet, z_ind, params, auxdata, verbose):
                 xl2, yl2 = left2[0], left2[1]
                 xr, yr = right[0], right[1]
 
-                for x_ind in np.arange(x_min, x_max + params["layer_height"], params["layer_height"]):
+                for x_ind in np.arange(xl1, xr, params["layer_height"]):
                     t1 = (x_ind - xl1) / (xr - xl1)
                     t2 = (x_ind - xl2) / (xr - xl2)
                     segments.append((
@@ -174,7 +174,7 @@ def intersect(facet, z_ind, params, auxdata, verbose):
                 xr1, yr1 = right1[0], right1[1]
                 xr2, yr2 = right2[0], right2[1]
 
-                for x_ind in np.arange(x_min, x_max + params["layer_height"], params["layer_height"]):
+                for x_ind in np.arange(xl, xr1, params["layer_height"]):
                     t1 = (x_ind - xl) / (xr1 - xl)
                     t2 = (x_ind - xl) / (xr2 - xl)
                     segments.append((
@@ -239,11 +239,11 @@ def intersect(facet, z_ind, params, auxdata, verbose):
             ))
 
     # Round to a reasonable precision.
-    precision = 5
-    for ind, (p1, p2) in enumerate(segments):
-        segments[ind] = (
-            (round(p1[0], precision), round(p1[1], precision), round(p1[2], precision)),
-            (round(p2[0], precision), round(p2[1], precision), round(p2[2], precision)),
-        )
+    # precision = 5
+    # for ind, (p1, p2) in enumerate(segments):
+    #     segments[ind] = (
+    #         (round(p1[0], precision), round(p1[1], precision), round(p1[2], precision)),
+    #         (round(p2[0], precision), round(p2[1], precision), round(p2[2], precision)),
+    #     )
 
     return segments
