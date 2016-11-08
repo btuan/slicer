@@ -27,3 +27,8 @@ Example run:
 ```
 $ ./src/main.py --stl models/10uCubeRef.stl --preamble config/preamble.gcode --cleanup config/cleanup.gcode --outpath out.gcode
 ```
+
+Automated testing:
+```
+$ ./make_models.sh
+```
